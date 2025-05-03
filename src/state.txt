@@ -1,0 +1,2420 @@
+Files in current directory:
+File: auth.ts
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import NextAuth from "next-auth";
+import prisma from "./lib/prisma";
+import Google from "next-auth/providers/google";
+import Github from "next-auth/providers/github";
+import { Adapter } from "next-auth/adapters";
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  adapter: PrismaAdapter(prisma) as Adapter,
+  providers: [Google, Github],
+  trustHost: true,
+  callbacks: {
+    session({ session, user }) {
+      session.user.role = user.role;
+      return session;
+    },
+  },
+});
+----------------
+File: explore.sh
+#!/bin/bash
+
+# Define allowed file extensions for programming languages, txt, csv, and json
+ALLOWED_EXTENSIONS="\.py$|\.java$|\.c$|\.cpp$|\.cs$|\.js$|\.ts$|\.rb$|\.php$|\.go$|\.rs$|\.sh$|\.pl$|\.R$|\.kt$|\.scala$|\.swift$|\.txt$|\.csv$|\.json$"
+
+# List and cat files in current directory with allowed extensions
+echo "Files in current directory:"
+for file in *; do
+    if [ -f "$file" ] && [[ "$file" =~ $ALLOWED_EXTENSIONS ]]; then
+        echo "File: $file"
+        cat "$file"
+        echo "----------------"
+    fi
+done
+
+# List all directories and recursively cat files with allowed extensions
+echo -e "\nDirectories in current directory:"
+for dir in */; do
+    if [ -d "$dir" ]; then
+        echo "Directory: $dir"
+        echo "Files in $dir:"
+        # Recursively find and cat files with allowed extensions
+        find "$dir" -type f \( -name "*.py" -o -name "*.java" -o -name "*.c" -o -name "*.cpp" -o -name "*.cs" -o -name "*.js" -o -name "*.ts" -o -name "*.rb" -o -name "*.php" -o -name "*.go" -o -name "*.rs" -o -name "*.sh" -o -name "*.pl" -o -name "*.R" -o -name "*.kt" -o -name "*.scala" -o -name "*.swift" -o -name "*.txt" -o -name "*.csv" -o -name "*.json" \) ! -name "*.ipynb" -exec sh -c '
+            for filepath; do
+                echo "File: $filepath"
+                cat "$filepath"
+                echo "----------------"
+            done
+        ' sh {} +
+    fi
+done----------------
+File: _middleware.ts
+export { auth as middleware } from "@/auth";
+----------------
+File: state.txt
+----------------
+
+Directories in current directory:
+Directory: app/
+Files in app/:
+File: app/api/auth/[...nextauth]/route.ts
+import { handlers } from "@/auth";
+
+export const { GET, POST } = handlers;
+----------------
+File: app/api/geolocation/route.ts
+import { NextResponse } from "next/server";
+import { GEOLOCATION_API } from "@/lib/constants";
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const lat = searchParams.get("lat");
+    const lon = searchParams.get("lon");
+
+    if (!lat || !lon) {
+      throw new Error("Latitude and longitude are required");
+    }
+
+    const response = await fetch(
+      `https://api.ipgeolocation.io/ipgeo?apiKey=${GEOLOCATION_API}&lat=${lat}&long=${lon}`
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error: ${errorText}`);
+      return NextResponse.json(
+        { message: "Failed to fetch location details" },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Geolocation API error:", error);
+    return NextResponse.json(
+      { message: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+----------------
+Directory: components/
+Files in components/:
+Directory: lib/
+Files in lib/:
+File: lib/types.ts
+import { z } from "zod";
+import {
+  addPestFormSchema,
+  contactFormSchema,
+  addDiseaseFormSchema,
+  editPestFormSchema,
+  registerSupplierFormSchema,
+  addProductFormSchema,
+  editProductFormSchema,
+} from "./schemas";
+import { IconProp } from "@fortawesome/fontawesome-svg-core";
+import { Product, Role, Scan, ScanType, Supplier, User } from "@prisma/client";
+
+export type ContactForm = z.infer<typeof contactFormSchema>;
+
+export type AddPestForm = z.infer<typeof addPestFormSchema>;
+
+export type AddDiseaseForm = z.infer<typeof addDiseaseFormSchema>;
+
+export type EditPestForm = z.infer<typeof editPestFormSchema>;
+
+export type RegisterSupplierForm = z.infer<typeof registerSupplierFormSchema>;
+
+export type AddProductForm = z.infer<typeof addProductFormSchema>;
+
+export type EditProductForm = z.infer<typeof editProductFormSchema>;
+
+export type TFeatureItem =
+  | {
+      title: string;
+      description: string;
+      icon: IconProp;
+      alt?: undefined;
+      src?: undefined;
+    }
+  | {
+      title: string;
+      description: string;
+      src: string;
+      alt: string;
+      icon?: undefined;
+    };
+
+export type TScanData =
+  | ({
+      scan: {
+        id: string;
+        description: string | null;
+        url: string;
+        createdAt: Date;
+        customerId: string;
+        type: ScanType;
+        name: string;
+      }[];
+    } & {
+      id: string;
+    })
+  | null;
+
+export type ExpandedDescriptions = {
+  [key: string]: boolean;
+};
+
+export type ResourceNames = {
+  name: string;
+}[];
+
+export enum ResourceType {
+  PEST = "Pest",
+  DISEASE = "Disease",
+}
+
+export type ProductWithSuppliers = {
+  country: string;
+  description: string;
+  id: string;
+  region: string;
+  product: {
+    id: string;
+    name: string;
+  };
+  supplier: {
+    name: string;
+    id: string;
+  };
+  city: string;
+  price: number;
+  images: string[];
+};
+
+type Currency = {
+  name: string;
+  code: string;
+  symbol: string;
+};
+
+type TimeZone = {
+  name: string;
+  offset: number;
+  current_time: string;
+  current_time_unix: string;
+  is_dst: string;
+  dst_savings: number;
+};
+
+export type IpInfo = {
+  ip: string;
+  hostname: string;
+  continent_code: string;
+  continent_name: string;
+  country_code2: string;
+  country_code3: string;
+  country_name: string;
+  country_capital: string;
+  state_prov: string;
+  district: string;
+  city: string;
+  zipcode: string;
+  latitude: number;
+  longitude: number;
+  is_eu: string;
+  calling_code: string;
+  country_tld: string;
+  languages: string;
+  country_flag: string;
+  isp: string;
+  connection_type: string;
+  organization: string;
+  asn: string;
+  geoname_id: number;
+  currency: Currency;
+  time_zone: TimeZone;
+};
+
+export type CustomerScan = {
+  id: string;
+  role: Role | null;
+  image: string | null;
+  name: string | null;
+  totalScans: number;
+  updatedAt: Date;
+  createdAt: Date;
+  userName: string | null;
+  userEmail: string | null;
+};
+
+export type TLocation = {
+  id: string;
+  countryCode: string;
+  currencySymbol: string;
+  city: string;
+  country: string;
+  region: string;
+};
+
+ type LocationInfo = {
+  name: string;
+  description?: string;
+  isoName?: string;
+  order: number;
+  adminLevel?: number;
+  isoCode?: string;
+  wikidataId?: string;
+  geonameId?: number;
+};
+
+type LocalityInfo = {
+  administrative: LocationInfo[];
+  informative: LocationInfo[];
+};
+
+export type GeolocationData = {
+  latitude: number;
+  lookupSource: string;
+  longitude: number;
+  localityLanguageRequested: string;
+  continent: string;
+  continentCode: string;
+  countryName: string;
+  countryCode: string;
+  principalSubdivision: string;
+  principalSubdivisionCode: string;
+  city: string;
+  locality: string;
+  postcode: string;
+  plusCode: string;
+  localityInfo: LocalityInfo;
+};
+----------------
+File: lib/hooks/useGeolocation.ts
+import { useState, useEffect } from "react";
+import { GeolocationData } from "../types";
+const useClientGeolocation = () => {
+  const [location, setLocation] = useState<GeolocationData & {
+    latitude: number;
+    longitude: number;
+  }>();
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+useEffect(() => {
+  const fetchLocationDetails = async (latitude: number, longitude: number) => {
+    try {
+      const response = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch location details");
+      }
+      const data = await response.json();
+      setLocation({
+        ...data,
+        latitude,
+        longitude,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchLocation = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          fetchLocationDetails(latitude, longitude);
+        },
+        (error) => {
+          setError(error.message);
+          setIsLoading(false);
+        }
+      );
+    } else {
+      setError("Geolocation is not supported by this browser");
+      setIsLoading(false);
+    }
+  };
+
+  fetchLocation();
+}, []);
+
+  return { location, error, isLoading };
+};
+
+export default useClientGeolocation;
+----------------
+File: lib/hooks/useHashState.ts
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+
+const useHashState = () => {
+  const [hashState, setHashState] = useState("");
+
+  useEffect(() => {
+    const hash = window.location.hash.substring(1);
+    if (hash) setHashState(hash);
+  }, []);
+
+  useEffect(() => {
+    if (hashState === "has-role") {
+      toast.error("You are already registered with a different role.a");
+      // Reset the URL by removing the hash
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (hashState === "pending") {
+      toast.error("Please wait for approval.");
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (hashState === "rejected") {
+      toast.error("Your application has been rejected, please try again soon or contact us.");
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [hashState]);
+};
+
+export default useHashState;
+----------------
+File: lib/data.ts
+import {
+  faBoltLightning,
+  faDatabase,
+  faLink,
+  faMobile,
+  faUserDoctor,
+} from "@fortawesome/free-solid-svg-icons";
+import { TFeatureItem } from "./types";
+
+export const FEATURES_DATA: TFeatureItem[] = [
+  {
+    title: "Instant Diagnosis",
+    description:
+      "Quickly identify pests and plants with a single image using AI image recognition.",
+    icon: faBoltLightning,
+  },
+  {
+    title: "Expert AI Recommendations",
+    description:
+      "Receive tailored treatment plans and preventive measures to address identified issues.",
+    src: "https://img.icons8.com/ios-filled/100/064E3B/sparkling--v1.png",
+    alt: "Stars sparkling",
+  },
+  {
+    title: "Comprehensive Database",
+    description:
+      "Access a vast library of plant species and common ailments to enhance your understanding and care.",
+    icon: faDatabase,
+  },
+  {
+    title: "User-Friendly Interface",
+    description:
+      "Navigate seamlessly with a clean, intuitive design for efficient and straightforward usage.",
+    icon: faMobile,
+  },
+  {
+    title: "Consultation Services",
+    description:
+      "In-app chat consultations offered with agricultural specialists for personalized advice.",
+    icon: faUserDoctor,
+  },
+  {
+    title: "Supplier Links",
+    description:
+      "Easily find and purchase recommended supplies and treatments directly from tusted vendors.",
+    icon: faLink,
+  },
+];
+
+export const PARTNERSHIPS_DATA = [
+  { src: "/assets/images/nasa.svg", alt: "NASA logo", name: "NASA" },
+  { src: "/assets/images/meta.svg", alt: "Meta logo", name: "Meta" },
+  { src: "/assets/images/openai.svg", alt: "OpenAI logo", name: "OpenAI" },
+  {
+    src: "/assets/images/microsoft.svg",
+    alt: "Microsoft logo",
+    name: "Microsoft",
+  },
+  { src: "/assets/images/google.svg", alt: "Google logo", name: "Google" },
+];
+
+export const FAQ_DATA = [
+  {
+    key: "1",
+    title: "How does AgriGuide work?",
+    content: `AgriGuide uses AI image recognition to help African farmers identify
+              and manage crop pests and diseases accurately and efficiently. Farmers
+              upload pictures of their crops showing potential issues, and the AI
+              analyzes the images to identify the specific pest or disease,
+              providing targeted treatment recommendations.`,
+  },
+  {
+    key: "2",
+    title: "Who is this app targeting?",
+    content: `The app is designed for African farmers, including smallholder
+              farmers, agricultural extension services, NGOs, and larger
+              agribusinesses.`,
+  },
+  {
+    key: "3",
+    title: "What kind of pests and diseases can the app identify?",
+    content: `The app uses a trained AI model which has a comprehensive database
+              covering a wide range of pests and diseases affecting various crops in
+              Africa.`,
+  },
+  {
+    key: "4",
+    title: "Are the treatment recommendations organic?",
+    content: `Yes, the app emphasizes sustainable practices by recommending organic
+              control methods whenever possible and providing targeted pesticide use
+              only when necessary.`,
+  },
+];
+
+export const TESTIMONIALS_DATA = [
+  {
+    quote:
+      "As a smallholder farmer, the AI-powered app has been a game-changer for me. Identifying pests and diseases used to be guesswork, but now I get accurate diagnoses and treatment recommendations within minutes. My crop yields have improved significantly, and I feel more confident in managing my farm.",
+    name: "John Gikuru",
+    title: "Kenyan Farmer",
+  },
+  {
+    quote:
+      "This app has revolutionized our agricultural extension services. We can now provide timely and precise advice to farmers, even in remote areas. The AI's accuracy and the app's user-friendly interface have made it an invaluable tool for both farmers and extension officers.",
+    name: "Amina Swaleh",
+    title: "Agricultural Extension Officer",
+  },
+  {
+    quote:
+      "Using the app has saved me so much time and money. The targeted treatment recommendations mean I use pesticides more efficiently, and the emphasis on organic options helps me maintain sustainable farming practices. It's a must-have for any farmer looking to improve their crop management.",
+    name: "Samuel Ndokii",
+    title: "Nigerian Farmer",
+  },
+  {
+    quote:
+      "Our agribusiness has benefited greatly from this AI app. It ensures our field staff can consistently identify and manage crop threats, reducing reliance on broad-spectrum pesticides and promoting sustainable practices. The app's data insights have also been valuable for our research and development.",
+    name: "Grace Wairimu",
+    title: "Agribusiness Manager",
+  },
+];
+
+// each agrochemical object should have name, shop sold, price, image, location and description
+export const TEMP_PRODUCT_DATA = [
+ {
+  id: "1",
+  name: "Fungicide",
+  supplier: "Agrovet",
+  price: "500",
+  // image: "/assets/images/fungicide.jpg",
+  location: "Nairobi",
+  description: "Fungicide is a chemical pesticide that kills or inhibits the growth of fungi. It is used to control fungal diseases in crops, such as powdery mildew, rust, and blight. Fungicides can be applied as a spray, dust, or seed treatment, depending on the type of fungus and the crop being treated."
+ },
+ {
+  id: "3",
+  name: "Fungicide",
+  supplier: "Agrovet",
+  price: "400",
+  // image: "/assets/images/fungicide.jpg",
+  location: "Mombasa",
+  description: "Fungicide is a chemical pesticide that kills or inhibits the growth of fungi. It is used to control fungal diseases in crops, such as powdery mildew, rust, and blight. Fungicides can be applied as a spray, dust, or seed treatment, depending on the type of fungus and the crop being treated."
+ },
+ {
+  id: "2",
+  name: "Insecticide",
+  supplier: "Chemshop",
+  price: "400",
+  // image: "/assets/images/insecticide.jpg",
+  location: "Mombasa",
+  description: "Insecticide is a chemical pesticide that kills or repels insects. It is used to control insect pests in crops, such as aphids, caterpillars, and beetles. Insecticides can be applied as a spray, dust, or seed treatment, depending on the type of insect and the crop being treated."
+ },
+ {
+  id: "3",
+  name: "Herbicide",
+  supplier: "Landmark",
+  price: "300",
+  // image: "/assets/images/herbicide.jpg",
+  location: "Malindi",
+  description: "Herbicide is a chemical pesticide that kills or inhibits the growth of weeds. It is used to control unwanted plants in crops, such as grasses, broadleaf weeds, and sedges. Herbicides can be applied as a spray, dust, or soil treatment, depending on the type of weed and the crop being treated."
+ },
+ {
+  id: "4",
+  name: "Fertilizer",
+  supplier: "Grocer",
+  price: "200",
+  // image: "/assets/images/fertilizer.jpg",
+  location: "Kwale",
+  description: "Fertilizer is a substance that provides essential nutrients to plants to promote growth and increase yields. It is used to supplement the soil with nutrients that may be lacking, such as nitrogen, phosphorus, and potassium. Fertilizers can be applied as a granular, liquid, or foliar spray, depending on the type of crop and the soil conditions."
+ },
+ {
+  id: "5",
+  name: "Pesticide",
+  supplier: "Happy Farm",
+  price: "250",
+  location: "Kisauni",
+  description: "Pesticide is a chemical substance used to kill or control pests, such as insects, weeds, and fungi. It is used to protect crops from damage and increase yields. Pesticides can be applied as a spray, dust, or seed treatment, depending on the type of pest and the crop being treated.",
+  // image: "/assets/images/pesticide.jpg",
+ }
+]
+
+
+----------------
+File: lib/actions.ts
+"use server";
+
+import {
+  addDiseaseFormSchema,
+  addPestFormSchema,
+  addProductFormSchema,
+  contactFormSchema,
+  editPestFormSchema,
+  editProductFormSchema,
+  registerSupplierFormSchema,
+} from "./schemas";
+import {
+  initialAddPestFormState,
+  initialAddProductFormState,
+  initialDiseaseFormState,
+  initialEditPestFormState,
+  initialEditProductFormState,
+  initialFormState,
+  initialSupplierFormState,
+  ScanStatus,
+} from "./constants";
+import {
+  AddDiseaseForm,
+  AddPestForm,
+  AddProductForm,
+  ContactForm,
+  EditPestForm,
+  EditProductForm,
+  RegisterSupplierForm,
+  ResourceType,
+} from "./types";
+import { Resend } from "resend";
+import { EmailTemplate } from "@/components/ui/EmailTemplate";
+import OpenAI from "openai";
+import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
+import prisma from "./prisma";
+import { Role, ScanType, SupplierStatus } from "@prisma/client";
+import { supabase } from "./supabase";
+import removeMarkdown from "remove-markdown";
+import {
+  arraysAreEqualUnordered,
+  getResourceDescription,
+  getResourceName,
+} from "./utils";
+import { redirect } from "next/navigation";
+
+export const scanPestImage = async (
+  formState: string,
+  formData: FormData
+): Promise<string> => {
+  const image = formData.get("image") as any;
+  if (image.size === 0) {
+    return ScanStatus.ERROR;
+  }
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API,
+  });
+  const session = await auth();
+  const user = session?.user;
+  const parsedImage = JSON.parse(image);
+
+  // text: "The image is a scan of a plant pest. Generate a response that includes: The name of the pest in singular form as the first word, Description: Provide a brief description of the pest, Damage: Describe the damage the pest causes to plants, Control: Outline the control measures for managing the pest, Treatment: Provide treatment options for the pest, including the medicine name and dosage. Ensure each section is very detailed in its own paragraph with the section headings bolded.",
+
+  // Fetching AI scan response
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "The image is a scan of a plant pest. Generate a response that includes: 1. The name of the pest in singular form and bold as the first word, 2. Description, 3. Damage, 4. Control and 5. Treatment. Ensure each section is very detailed in its own paragraph with the section headings bolded and no spacing between a specific paragraph. Separate content with a br tag. If the image given is not a pest, the response should be the text 'Error: This is not a pest' in plain text",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${parsedImage.data}`,
+                detail: "high",
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const res = response.choices[0].message.content as string;
+
+    // Handle image not pest
+    if (res.includes("Error: This is not a pest"))
+      return ScanStatus.IMAGENOTPEST;
+
+    if (user?.role !== Role.CUSTOMER) return res;
+
+    // Upload image to Supabase
+    const imageBuffer = Buffer.from(parsedImage.data, "base64");
+    const folderName = `customer/${user!.id}/pests`;
+    const fileName = `${folderName}/${Date.now()}_${parsedImage.name}`;
+    const { data: imageData, error } = await supabase.storage
+      .from("images")
+      .upload(fileName, imageBuffer, {
+        contentType: parsedImage.type,
+      });
+
+    const pestName = getResourceName(res);
+    const pestDescription = getResourceDescription(res);
+
+    // Store scan in database
+    await prisma.scan.create({
+      data: {
+        name: pestName,
+        description: pestDescription,
+        customerId: user!.id!,
+        url: `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData?.fullPath}`,
+        type: ScanType.PEST,
+      },
+    });
+
+    // Store pest in database
+    const isPestStored = await prisma.pest.findFirst({
+      where: {
+        slug: pestName.toLowerCase().replace(/\s/g, "-"),
+      },
+    });
+
+    // TODO: Upload image to its own folder later and not use customer scan reference
+
+    if (!isPestStored)
+      await prisma.pest.create({
+        data: {
+          name: pestName,
+          text: pestDescription,
+          images: [
+            `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData?.fullPath}`,
+          ],
+          slug: pestName.toLowerCase().replace(/\s/g, "-"),
+        },
+      });
+
+    revalidatePath("/resources");
+
+    return res;
+  } catch (error) {
+    return ScanStatus.ERROR;
+  }
+};
+
+export const scanDiseaseImage = async (
+  formState: string,
+  formData: FormData
+): Promise<string> => {
+  const image = formData.get("image") as any;
+  if (image.size === 0) {
+    return ScanStatus.ERROR;
+  }
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API,
+  });
+  const session = await auth();
+  const user = session?.user;
+  const parsedImage = JSON.parse(image);
+  const fieldTag = formData.get("tag") as string;
+  const selectTag = formData.get("selectTag") as string;
+
+  const tag = fieldTag || selectTag;
+
+  // text: "The image is a scan of a plant pest. Generate a response that includes: The name of the pest in singular form as the first word, Description: Provide a brief description of the pest, Damage: Describe the damage the pest causes to plants, Control: Outline the control measures for managing the pest, Treatment: Provide treatment options for the pest, including the medicine name and dosage. Ensure each section is very detailed in its own paragraph with the section headings bolded.",
+
+  // Fetching AI scan response
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "The image given should be of a plant disease. Generate a response that comprises of: 1. The name of the disease in singular form first word, 2. Cause, 3. Symptoms, 4. Impact and 5. Treatment each in their own paragraphs with heading bold and separated with a br tagnpm. If the image given is not a disease, the response should be the text 'Error: This is not a disease'",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${parsedImage.data}`,
+                detail: "high",
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const res = response.choices[0].message.content as string;
+
+    // Handle image not disease
+    if (res.includes("Error: This is not a disease"))
+      return ScanStatus.IMAGENOTDISEASE;
+
+    if (user?.role !== Role.CUSTOMER) return res;
+
+    // Upload image to Supabase
+    const imageBuffer = Buffer.from(parsedImage.data, "base64");
+    const folderName = `customer/${user!.id}/diseases`;
+    const fileName = `${folderName}/${Date.now()}_${parsedImage.name}`;
+    const { data: imageData, error } = await supabase.storage
+      .from("images")
+      .upload(fileName, imageBuffer, {
+        contentType: parsedImage.type,
+      });
+
+    const diseaseName = getResourceName(res);
+    const diseaseDescription = getResourceDescription(res);
+
+    // Store scan in database
+    await prisma.scan.create({
+      data: {
+        name: diseaseName,
+        description: diseaseDescription,
+        customerId: user!.id!,
+        url: `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData?.fullPath}`,
+        type: ScanType.DISEASE,
+        tag,
+      },
+    });
+
+    // Store disease in database
+    const isDiseaseStored = await prisma.disease.findFirst({
+      where: {
+        slug: diseaseName.toLowerCase().replace(/\s/g, "-"),
+      },
+    });
+
+    // TODO: Upload image to its own folder later and not use customer scan reference
+
+    if (!isDiseaseStored)
+      await prisma.disease.create({
+        data: {
+          name: diseaseName,
+          text: diseaseDescription,
+          images: [
+            `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData?.fullPath}`,
+          ],
+          slug: diseaseName.toLowerCase().replace(/\s/g, "-"),
+        },
+      });
+
+    revalidatePath("/resources");
+
+    return res;
+  } catch (error) {
+    return ScanStatus.ERROR;
+  }
+};
+
+export const sendEmail = async (
+  formState: ContactForm,
+  formData: FormData
+): Promise<ContactForm> => {
+  const name = formData.get("name");
+  const recipientEmail = formData.get("email");
+  const message = formData.get("message");
+
+  const { success, data, error } = contactFormSchema.safeParse({
+    name,
+    email: recipientEmail,
+    message,
+  });
+
+  if (!success) {
+    return {
+      ...initialFormState,
+      name: error.flatten().fieldErrors.name?.[0] ?? "",
+      email: error.flatten().fieldErrors.email?.[0] ?? "",
+      message: error.flatten().fieldErrors.message?.[0] ?? "",
+    };
+  }
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: "Contact <onboarding@resend.dev>",
+      to: process.env.ORG_EMAIL!,
+      subject: `Contact form submission from ${data.name}`,
+      react: EmailTemplate({
+        name: data.name,
+        email: data.email,
+        message: data.message,
+      }),
+      reply_to: data.email,
+      text: `Contact form submission from ${data.name}. Please view this email in an HTML-compatible email client.`,
+    });
+    return {
+      ...initialFormState,
+      db: "success",
+    };
+  } catch (error) {
+    return {
+      ...initialFormState,
+      db: "Error sending email, please try again",
+    };
+  }
+};
+
+export const deleteUser = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to delete a user");
+
+  try {
+    await prisma.user.delete({
+      where: {
+        id,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to delete user" + error.message);
+  }
+
+  revalidatePath("/", "layout");
+};
+
+export const deleteScan = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.CUSTOMER)
+    throw new Error("You must be a customer to delete your previous scan");
+
+  try {
+    await prisma.scan.delete({
+      where: {
+        id,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to delete scan" + error.message);
+  }
+
+  revalidatePath("/customer/scan-history");
+};
+
+export const addPest = async (
+  formState: AddPestForm,
+  formData: FormData
+): Promise<AddPestForm> => {
+  const name = formData.get("name") as string;
+  const description = formData.get("description") as string;
+  const control = formData.get("control") as string;
+  const damage = formData.get("damage") as string;
+  const image = formData.get("image") as any;
+
+  const { success, data, error } = addPestFormSchema.safeParse({
+    name,
+    description,
+    control,
+    damage,
+    image,
+  });
+
+  if (!success) {
+    return {
+      ...initialFormState,
+      name: error.flatten().fieldErrors.name?.[0] ?? "",
+      description: error.flatten().fieldErrors.description?.[0] ?? "",
+      control: error.flatten().fieldErrors.control?.[0] ?? "",
+      damage: error.flatten().fieldErrors.damage?.[0] ?? "",
+      image: error.flatten().fieldErrors.image?.[0] ?? "",
+    };
+  }
+
+  const parsedImage = JSON.parse(image);
+  const imageBuffer = Buffer.from(parsedImage.data, "base64");
+
+  try {
+    const folderName = `pests/${name}`;
+    const fileName = `${folderName}/${Date.now()}_${parsedImage.name}`;
+    const { data: imageData, error } = await supabase.storage
+      .from("images")
+      .upload(fileName, imageBuffer, {
+        contentType: parsedImage.type,
+      });
+
+    if (error) {
+      throw error;
+    }
+    // await prisma.pest.create({
+    //   data: {
+    //     name: data.name,
+    //     description: data.description,
+    //     control: data.control,
+    //     damage: data.damage,
+    //     slug: data.name.toLowerCase().replace(/\s/g, "-"),
+    //     image: `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData.fullPath}`,
+    //   },
+    // });
+    return {
+      ...initialAddPestFormState,
+      db: "success",
+    };
+  } catch (error) {
+    return {
+      ...initialAddPestFormState,
+      db: "Error adding pest, please try again",
+    };
+  }
+};
+
+export const addDisease = async (
+  formState: AddDiseaseForm,
+  formData: FormData
+): Promise<AddDiseaseForm> => {
+  const name = formData.get("name") as string;
+  const cause = formData.get("cause") as string;
+  const symptoms = formData.get("symptoms") as string;
+  const impact = formData.get("impact") as string;
+  const control = formData.get("control") as string;
+  const image = formData.get("image") as any;
+
+  const { success, data, error } = addDiseaseFormSchema.safeParse({
+    name,
+    cause,
+    symptoms,
+    impact,
+    control,
+    image,
+  });
+
+  if (!success) {
+    return {
+      ...initialDiseaseFormState,
+      name: error.flatten().fieldErrors.name?.[0] ?? "",
+      cause: error.flatten().fieldErrors.control?.[0] ?? "",
+      symptoms: error.flatten().fieldErrors.symptoms?.[0] ?? "",
+      impact: error.flatten().fieldErrors.impact?.[0] ?? "",
+      control: error.flatten().fieldErrors.control?.[0] ?? "",
+      image: error.flatten().fieldErrors.image?.[0] ?? "",
+    };
+  }
+
+  const parsedImage = JSON.parse(image);
+  const imageBuffer = Buffer.from(parsedImage.data, "base64");
+
+  try {
+    const folderName = `diseases/${name}`;
+    const fileName = `${folderName}/${Date.now()}_${parsedImage.name}`;
+    const { data: imageData, error } = await supabase.storage
+      .from("images")
+      .upload(fileName, imageBuffer, {
+        contentType: parsedImage.type,
+      });
+
+    if (error) {
+      throw error;
+    }
+    // await prisma.disease.create({
+    //   data: {
+    //     name: data.name,
+    //     cause: data.cause,
+    //     symptoms: data.symptoms,
+    //     impact: data.impact,
+    //     control: data.control,
+    //     slug: data.name.toLowerCase().replace(/\s/g, "-"),
+    //     image: `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData.fullPath}`,
+    //   },
+    // });
+    return {
+      ...initialDiseaseFormState,
+      db: "success",
+    };
+  } catch (error) {
+    return {
+      ...initialDiseaseFormState,
+      db: "Error adding disease, please try again",
+    };
+  }
+};
+
+export const deletePest = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to delete a pest");
+
+  try {
+    await prisma.pest.delete({
+      where: {
+        id,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to delete pest" + error.message);
+  }
+
+  redirect("/resources/pests");
+};
+
+export const deleteDisease = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to delete a disease");
+
+  try {
+    await prisma.disease.delete({
+      where: {
+        id,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to delete disease" + error.message);
+  }
+
+  redirect("/resources/diseases");
+};
+
+export const editPest = async ({
+  id,
+  content,
+}: {
+  id: string;
+  content: string;
+}) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to edit a pest");
+
+  try {
+    await prisma.pest.update({
+      where: {
+        id: id,
+      },
+      data: {
+        text: content,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to edit pest" + error.message);
+  }
+
+  revalidatePath(`/resources/pests/${id}`);
+};
+
+export const editDisease = async ({
+  id,
+  content,
+}: {
+  id: string;
+  content: string;
+}) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to edit a disease");
+
+  try {
+    await prisma.disease.update({
+      where: {
+        id: id,
+      },
+      data: {
+        text: content,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to edit disease" + error.message);
+  }
+
+  revalidatePath(`/resources/diseases/${id}`);
+};
+
+export const deleteAllScans = async () => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.CUSTOMER)
+    throw new Error(
+      "You must be logged in as a customer to delete your previous scans"
+    );
+
+  try {
+    await prisma.scan.deleteMany({
+      where: {
+        customerId: user!.id!,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to delete scans" + error.message);
+  }
+
+  revalidatePath("/customer/scan-history");
+};
+
+// a function which receives 2 image ids, fetches the url of the image by use of the id from the scan prisma model and converts the 2 supabase bucket url to a form that open ai image api can understand the image and pass the 2 images to the api with a text of stating how the progress is and returning the response
+export const trackProgress = async ({
+  image1,
+  image2,
+}: {
+  image1: string;
+  image2: string;
+}) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (!user) throw new Error("You must be logged in to track progress");
+
+  const image1Url = await prisma.scan.findFirst({
+    where: {
+      id: image1,
+    },
+  });
+
+  const image2Url = await prisma.scan.findFirst({
+    where: {
+      id: image2,
+    },
+  });
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API,
+  });
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "You are an agricultural AI assistant. You have been given the 2 images, track the progress of the plant disease over time. The first image is the initial scan of the plant disease and the second image is the latest scan of the plant disease. Provide a detailed response on how the plant disease has progressed over time. If the progress has not improved or has become worse, then notify the user about it as well. If the images are of different diseases or are just different plants altogether, notify the user with a response of one sentence. Do not give a response like feel free to ask because it's a one way input",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: image1Url!.url,
+                detail: "high",
+              },
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: image2Url!.url,
+                detail: "high",
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    console.log(response.choices[0].message);
+    return response.choices[0].message.content as string;
+  } catch (error) {
+    return ScanStatus.ERROR;
+  }
+};
+
+export const getTags = async () => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (!user) return;
+
+  const tags = await prisma.scan.findMany({
+    where: {
+      customerId: user.id,
+      type: ScanType.DISEASE,
+    },
+    select: {
+      tag: true,
+    },
+    distinct: ["tag"],
+  });
+
+  revalidatePath("/");
+
+  return tags;
+};
+
+export const uploadImages = async ({
+  id,
+  files,
+  type,
+}: {
+  id: string;
+  files: { name: string; type: string; base64: string }[];
+  type: ResourceType;
+}) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (!user || user.role !== Role.ADMIN) return;
+
+  const images = files.map(async (file) => {
+    const base64Data = file.base64.split(",")[1];
+    const imageBuffer = Buffer.from(base64Data, "base64");
+    const folderName = `resource`;
+    const fileName = `${folderName}/${Date.now()}_${file.name}`;
+    const { data: imageData, error } = await supabase.storage
+      .from("images")
+      .upload(fileName, imageBuffer, {
+        contentType: file.type,
+      });
+
+    if (error) throw new Error("Failed to upload image");
+
+    const imageUrl = `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData.fullPath}`;
+
+    if (type === ResourceType.PEST) {
+      await prisma.pest.update({
+        where: { id },
+        data: {
+          images: {
+            push: imageUrl,
+          },
+        },
+      });
+    } else if (type === ResourceType.DISEASE) {
+      await prisma.disease.update({
+        where: { id },
+        data: {
+          images: {
+            push: imageUrl,
+          },
+        },
+      });
+    }
+
+    return imageUrl;
+  });
+
+  await Promise.all(images);
+
+  revalidatePath(`/resources`);
+};
+
+export const deleteImage = async ({
+  id,
+  imageUrl,
+  type,
+}: {
+  id: string;
+  imageUrl: string;
+  type: ResourceType;
+}) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (!user || user.role !== Role.ADMIN) return;
+
+  // Extract the file name from the URL
+  const fileName = imageUrl.split("/").pop();
+
+  if (!fileName) {
+    throw new Error("Invalid image URL");
+  }
+
+  // Delete the file from Supabase storage
+  const { error: deleteError } = await supabase.storage
+    .from("images")
+    .remove([`resource/${fileName}`]);
+
+  if (deleteError) {
+    throw new Error("Failed to delete image from storage");
+  }
+
+  // Update the database to remove the image URL
+  if (type === "Pest") {
+    await prisma.pest.update({
+      where: { id },
+      data: {
+        images: {
+          set: await prisma.pest
+            .findUnique({ where: { id } })
+            .then(
+              (pest) => pest?.images.filter((img) => img !== imageUrl) || []
+            ),
+        },
+      },
+    });
+  } else if (type === "Disease") {
+    await prisma.disease.update({
+      where: { id },
+      data: {
+        images: {
+          set: await prisma.disease
+            .findUnique({ where: { id } })
+            .then(
+              (disease) =>
+                disease?.images.filter((img) => img !== imageUrl) || []
+            ),
+        },
+      },
+    });
+  }
+
+  revalidatePath(`/resources`);
+};
+
+export const registerSupplier = async (
+  formState: RegisterSupplierForm,
+  formData: FormData
+): Promise<RegisterSupplierForm> => {
+  const name = formData.get("name") as string;
+  const email = formData.get("email") as string;
+  const address = formData.get("address") as string;
+  const phone = formData.get("phone") as string;
+  const logo = formData.get("logo") as any;
+  const license = formData.get("license") as any;
+
+  const session = await auth();
+  const id = session?.user.id;
+
+  const { success, data, error } = registerSupplierFormSchema.safeParse({
+    name,
+    email,
+    address,
+    phone,
+    logo,
+    license,
+  });
+
+  if (!success) {
+    return {
+      ...initialSupplierFormState,
+      name: error.flatten().fieldErrors.name?.[0] ?? "",
+      email: error.flatten().fieldErrors.email?.[0] ?? "",
+      address: error.flatten().fieldErrors.address?.[0] ?? "",
+      phone: error.flatten().fieldErrors.phone?.[0] ?? "",
+      logo: error.flatten().fieldErrors.logo?.[0] ?? "",
+      license: error.flatten().fieldErrors.license?.[0] ?? "",
+    };
+  }
+
+  const parsedLogo = JSON.parse(logo);
+  const parsedLicense = JSON.parse(license);
+  const logoBuffer = Buffer.from(parsedLogo.data, "base64");
+  const licenseBuffer = Buffer.from(parsedLicense.data, "base64");
+
+  try {
+    const folderName = `supplier/${name}`;
+    const logoFileName = `${folderName}/${Date.now()}_${parsedLogo.name}`;
+    const licenseFileName = `${folderName}/${Date.now()}_${parsedLicense.name}`;
+    const { data: logoData, error: logoError } = await supabase.storage
+      .from("images")
+      .upload(logoFileName, logoBuffer, {
+        contentType: parsedLogo.type,
+      });
+    const { data: licenseData, error: licenseError } = await supabase.storage
+      .from("images")
+      .upload(licenseFileName, licenseBuffer, {
+        contentType: parsedLicense.type,
+      });
+
+    if (logoError || licenseError) {
+      throw new Error("Failed to upload images");
+    }
+
+    await prisma.supplier.update({
+      where: {
+        id,
+      },
+      data: {
+        name: data.name,
+        email: data.email,
+        address: data.address,
+        status: SupplierStatus.PENDING,
+        phone: data.phone,
+        logo: `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${logoData.fullPath}`,
+        license: `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${licenseData.fullPath}`,
+      },
+    });
+
+    await prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        role: Role.SUPPLIER,
+      },
+    });
+
+    return {
+      ...initialSupplierFormState,
+      db: "success",
+    };
+  } catch (error) {
+    return {
+      ...initialSupplierFormState,
+      db:
+        "Error registering supplier: " +
+        (error instanceof Error ? error.message : "Unknown error"),
+    };
+  }
+};
+
+export const deleteSupplier = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to delete a supplier");
+
+  try {
+    await prisma.user.delete({
+      where: {
+        id,
+      },
+    });
+  } catch (error) {
+    throw new Error(
+      "Failed to delete supplier: " +
+        (error instanceof Error ? error.message : "Unknown error")
+    );
+  }
+
+  revalidatePath("/resources/suppliers");
+};
+
+export const approveSupplier = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to approve a supplier");
+
+  try {
+    await prisma.supplier.update({
+      where: {
+        id,
+      },
+      data: {
+        status: SupplierStatus.APPROVED,
+        approvedBy: user.name,
+        approvedAt: new Date(),
+        rejectedAt: null,
+        rejectedBy: null,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to approve supplier" + error.message);
+  }
+
+  revalidatePath("/resources/suppliers");
+};
+
+export const rejectSupplier = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to reject a supplier");
+
+  try {
+    await prisma.supplier.update({
+      where: {
+        id,
+      },
+      data: {
+        status: SupplierStatus.REJECTED,
+        rejectedBy: user.name,
+        rejectedAt: new Date(),
+        approvedAt: null,
+        approvedBy: null,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to reject supplier" + error.message);
+  }
+
+  revalidatePath("/resources/suppliers");
+};
+
+export const cancelRejection = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to cancel rejection of a supplier");
+
+  try {
+    await prisma.supplier.update({
+      where: {
+        id,
+      },
+      data: {
+        status: SupplierStatus.PENDING,
+        rejectedBy: null,
+        rejectedAt: null,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to cancel rejection of supplier" + error.message);
+  }
+
+  revalidatePath("/resources/suppliers");
+};
+
+export const cancelApproval = async (id: string) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.ADMIN)
+    throw new Error("You must be an admin to cancel approval of a supplier");
+
+  try {
+    await prisma.supplier.update({
+      where: {
+        id,
+      },
+      data: {
+        status: SupplierStatus.PENDING,
+        approvedBy: null,
+        approvedAt: null,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to cancel approval of supplier" + error.message);
+  }
+
+  revalidatePath("/resources/suppliers");
+};
+
+export async function addProduct(prevState: any, formData: FormData) {
+  const name = formData.get("name") as string;
+  const price = formData.get("price") as string;
+  const description = formData.get("description") as string;
+  const images = formData.getAll("images") as any;
+  const city = formData.get("city") as string;
+  const country = formData.get("country") as string;
+  const region = formData.get("region") as string;
+  const countryCode = formData.get("countryCode") as string;
+  const currencySymbol = formData.get("currencySymbol") as string;
+
+  const session = await auth();
+  const user = session?.user;
+
+  const { success, data, error } = addProductFormSchema.safeParse({
+    name,
+    price,
+    description,
+    images,
+    city,
+    country,
+    region,
+    countryCode,
+    currencySymbol,
+  });
+
+  if (!success) {
+    return {
+      ...initialAddProductFormState,
+      name: error.flatten().fieldErrors.name?.[0] ?? "",
+      price: error.flatten().fieldErrors.price?.[0] ?? "",
+      description: error.flatten().fieldErrors.description?.[0] ?? "",
+      images: error.flatten().fieldErrors.images?.[0] ?? "",
+      city: error.flatten().fieldErrors.city?.[0] ?? "",
+      country: error.flatten().fieldErrors.country?.[0] ?? "",
+      region: error.flatten().fieldErrors.region?.[0] ?? "",
+      countryCode: error.flatten().fieldErrors.countryCode?.[0] ?? "",
+      currencySymbol: error.flatten().fieldErrors.currencySymbol?.[0] ?? "",
+    };
+  }
+
+  // check whether the product with the same name, city, country, region and supplier already exists
+  const productSupplier = await prisma.productSupplier.findFirst({
+    where: {
+      product: {
+        name,
+      },
+      city,
+      country,
+      region,
+      supplierId: user?.id!,
+    },
+  });
+
+  if (productSupplier) {
+    return {
+      ...initialAddProductFormState,
+      db: "You have already added a similar product in that location.",
+    };
+  }
+
+  const imageBuffers = images.map((image: any) => {
+    const parsedImage = JSON.parse(image);
+    return Buffer.from(parsedImage.data, "base64");
+  });
+
+  try {
+    // check if product exists by name
+    const product = await prisma.product.findUnique({
+      where: {
+        name,
+      },
+    });
+
+    let productId = product?.id;
+
+    if (!product) {
+      // create product if it doesnt exist
+      const { id } = await prisma.product.create({
+        data: {
+          name,
+        },
+      });
+
+      productId = id;
+    }
+
+    const folderName = `products/${name}`;
+    const imageUrls = await Promise.all(
+      imageBuffers.map(async (imageBuffer: any) => {
+        const fileName = `${folderName}/${Date.now()}_${Math.random()}.jpeg`;
+        const { data: imageData, error } = await supabase.storage
+          .from("images")
+          .upload(fileName, imageBuffer, {
+            contentType: "image/jpeg",
+          });
+
+        if (error) throw error;
+
+        return `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData.fullPath}`;
+      })
+    );
+
+    await prisma.productSupplier.create({
+      data: {
+        price: parseFloat(data.price),
+        description: data.description,
+        images: imageUrls,
+        city: data.city,
+        country: data.country,
+        region: data.region,
+        supplierId: user?.id!,
+        productId: productId!,
+        countryCode: data.countryCode,
+        currencySymbol: data.currencySymbol,
+      },
+    });
+
+    revalidatePath("/store", "layout");
+
+    return {
+      ...initialAddProductFormState,
+      db: "success",
+    };
+  } catch (error) {
+    return {
+      ...initialAddProductFormState,
+      db:
+        "Error adding product: " +
+        (error instanceof Error ? error.message : "Unknown error"),
+    };
+  }
+}
+
+export const deleteProduct = async ({
+  id,
+  imagesUrl,
+}: {
+  id: string;
+  imagesUrl: string[];
+}) => {
+  const session = await auth();
+  const user = session?.user;
+
+  if (user?.role !== Role.SUPPLIER && user?.role !== Role.ADMIN)
+    throw new Error("You are not allowed to delete product");
+
+  try {
+    await prisma.productSupplier.delete({
+      where: {
+        id,
+      },
+    });
+
+    imagesUrl.forEach(async (imageUrl) => {
+      const fileName = imageUrl.split("/").pop();
+      if (!fileName) {
+        throw new Error("Invalid image URL");
+      }
+
+      const { error: deleteError } = await supabase.storage
+        .from("images")
+        .remove([`products/${fileName}`]);
+
+      if (deleteError) {
+        throw new Error("Failed to delete image from storage");
+      }
+    });
+  } catch (error) {
+    if (error instanceof Error)
+      throw new Error("Failed to delete product" + error.message);
+  }
+
+  revalidatePath("/supplier/view-products");
+};
+
+export async function editProduct(
+  prevState: any,
+  formData: FormData
+): Promise<EditProductForm> {
+  const name = formData.get("name") as string;
+  const price = formData.get("price") as string;
+  const description = formData.get("description") as string;
+  const images = formData.getAll("images") as any;
+  const city = formData.get("city") as string;
+  const productSupplierId = formData.get("productSupplierId") as string;
+  const country = formData.get("country") as string;
+  const region = formData.get("region") as string;
+  const countryCode = formData.get("countryCode") as string;
+  const currencySymbol = formData.get("currencySymbol") as string;
+
+  const session = await auth();
+  const user = session?.user;
+
+  const { success, data, error } = editProductFormSchema.safeParse({
+    name,
+    price,
+    description,
+    images,
+    city,
+    country,
+    region,
+    productSupplierId,
+    countryCode,
+    currencySymbol,
+  });
+
+  if (!success) {
+    return {
+      ...initialEditProductFormState,
+      productSupplierId:
+        error.flatten().fieldErrors.productSupplierId?.[0] ?? "",
+      name: error.flatten().fieldErrors.name?.[0] ?? "",
+      price: error.flatten().fieldErrors.price?.[0] ?? "",
+      description: error.flatten().fieldErrors.description?.[0] ?? "",
+      images: error.flatten().fieldErrors.images?.[0] ?? "",
+      city: error.flatten().fieldErrors.city?.[0] ?? "",
+      country: error.flatten().fieldErrors.country?.[0] ?? "",
+      region: error.flatten().fieldErrors.region?.[0] ?? "",
+      countryCode: error.flatten().fieldErrors.countryCode?.[0] ?? "",
+      currencySymbol: error.flatten().fieldErrors.currencySymbol?.[0] ?? "",
+    };
+  }
+
+  // check if the database values are the same as the form values
+  const productSupplier = await prisma.productSupplier.findFirst({
+    where: {
+      id: productSupplierId,
+    },
+    include: {
+      product: true,
+    },
+  });
+
+  const imageUrlToBase64 = async (imageUrl: string) => {
+    const response = await fetch(imageUrl);
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    return base64;
+  };
+
+  const base64Images = await Promise.all(
+    productSupplier?.images.map(async (imageUrl) => {
+      return await imageUrlToBase64(imageUrl);
+    }) || []
+  );
+
+  const imageData = images.map((image: any) => {
+    const parsedImage = JSON.parse(image);
+    return parsedImage.data;
+  });
+
+  // if values are the same, return
+  if (
+    productSupplier?.product.name === name &&
+    productSupplier?.price === parseFloat(price) &&
+    productSupplier?.description === description &&
+    productSupplier?.city === city &&
+    productSupplier?.country === country &&
+    productSupplier?.region === region &&
+    productSupplier?.supplierId === user?.id &&
+    arraysAreEqualUnordered(imageData, base64Images)
+  ) {
+    return {
+      ...initialEditProductFormState,
+      db: "No changes were made.",
+    };
+  }
+
+  // Check if the product with the same details exists but is not the current product
+  const existingProductSupplier = await prisma.productSupplier.findFirst({
+    where: {
+      product: {
+        id: productSupplier?.productId,
+      },
+      city,
+      country,
+      region,
+      supplierId: user?.id!,
+      id: {
+        not: productSupplierId,
+      },
+    },
+  });
+
+  if (existingProductSupplier) {
+    return {
+      ...initialEditProductFormState,
+      db: "A similar product in that location already exists.",
+    };
+  }
+
+  const imageBuffers = images.map((image: any) => {
+    const parsedImage = JSON.parse(image);
+    return Buffer.from(parsedImage.data, "base64");
+  });
+
+  try {
+    // delete existing images first
+    const existingImages = productSupplier?.images || [];
+    const newImages = images || [];
+
+    // Find images that exist in existingImages but not in newImages
+    const imagesToDelete = existingImages.filter(
+      (img) => !newImages.includes(img)
+    );
+
+    await Promise.all(
+      imagesToDelete?.map(async (imageUrl) => {
+        const fileName = imageUrl.split("/").pop();
+        if (!fileName) console.warn(`Skipping invalid image URL: ${imageUrl}`);
+
+        const { error: deleteError } = await supabase.storage
+          .from("images")
+          .remove([`products/${productSupplier?.product.name}/${fileName}`]);
+        if (deleteError) {
+          console.error(
+            `Failed to delete image ${fileName}: ${deleteError.message}`
+          );
+        }
+      }) || []
+    );
+    // upload new images
+    const folderName = `products/${name}`;
+    const imageUrls = await Promise.all(
+      imageBuffers.map(async (imageBuffer: any) => {
+        const fileName = `${folderName}/${Date.now()}_${Math.random()}.jpeg`;
+        const { data: imageData, error } = await supabase.storage
+          .from("images")
+          .upload(fileName, imageBuffer, {
+            contentType: "image/jpeg",
+          });
+
+        if (error) throw error;
+
+        return `https://cbrgfqvmkgowzerbzued.supabase.co/storage/v1/object/public/${imageData.fullPath}`;
+      })
+    );
+
+    // Check if product exists, if not create it
+    const product = await prisma.product.findUnique({
+      where: {
+        name,
+      },
+    });
+
+    let productId = product?.id;
+
+    if (!product) {
+      const { id } = await prisma.product.create({
+        data: {
+          name,
+        },
+      });
+
+      productId = id;
+      // Check that there is no supplier linking to the previous product, if so delete the product
+      const productSupplierCount = await prisma.productSupplier.count({
+        where: {
+          productId: productSupplier?.productId,
+        },
+      });
+
+      if (productSupplierCount === 0) {
+        await prisma.product.delete({
+          where: {
+            id: productSupplier?.productId,
+          },
+        });
+      }
+    }
+
+    // Update the product supplier record
+    await prisma.productSupplier.update({
+      where: {
+        id: productSupplierId,
+      },
+      data: {
+        price: parseFloat(data.price),
+        description: data.description,
+        images: imageUrls,
+        city: data.city,
+        country: data.country,
+        region: data.region,
+        supplierId: user?.id!,
+        productId,
+        countryCode: data.countryCode,
+        currencySymbol: data.currencySymbol,
+      },
+    });
+
+    revalidatePath("/");
+
+    return {
+      ...initialEditProductFormState,
+      db: "success",
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      ...initialEditProductFormState,
+      db:
+        "Error updating product: " +
+        (error instanceof Error ? error.message : "Unknown error"),
+    };
+  }
+}
+
+export const sendMessage = async (message: string) => {
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API,
+  });
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an agricultural AI assistant known as AgriAI here to help farmers with their agricultural crop challenges that including crop pests and crop diseases, nothing else.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: message,
+            },
+          ],
+        },
+      ],
+    });
+    return response.choices[0].message.content as string;
+  } catch (error) {
+    throw new Error(
+      "Failed to send message: " +
+        (error instanceof Error ? error.message : "Unknown error")
+    );
+  }
+};
+----------------
+File: lib/schemas.ts
+import { z } from "zod";
+
+export const contactFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  message: z.string().min(1, "Message is required"),
+  db: z.string().optional(),
+});
+
+export const addPestFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  control: z.string().min(1, "Control is required"),
+  damage: z.string().min(1, "Damage is required"),
+  image: z.any(),
+  db: z.string().optional(),
+});
+
+export const addDiseaseFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  cause: z.string().min(1, "Cause is required"),
+  symptoms: z.string().min(1, "Symptoms is required"),
+  impact: z.string().min(1, "Impact is required"),
+  control: z.string().min(1, "Control is required"),
+  image: z.any(),
+  db: z.string().optional(),
+});
+
+export const editPestFormSchema = z.object({
+  content: z.string().min(1, "Content is required"),
+  db: z.string().optional(),
+});
+
+export const registerSupplierFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  address: z.string().min(1, "Address is required"),
+  phone: z.string().min(1, "Phone number is required"),
+  logo: z.any(),
+  license: z.any(),
+  db: z.string().optional(),
+});
+
+export const addProductFormSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  price: z.string().min(1, "Price is required"),
+  description: z.string().min(1, "Description is required"),
+  images: z.array(z.string()).or(z.string()),
+  country: z.string().min(1, "Country is required"),
+  region: z.string().min(1, "Region is required"),
+  countryCode: z.string().min(1, "Country code is required"),
+  currencySymbol: z.string().min(1, "Currency symbol is required"),
+  city: z.string().min(1, "City is required"),
+  db: z.string().optional(),
+});
+
+export const editProductFormSchema = addProductFormSchema.extend({
+  productSupplierId: z.string().min(1, "ID is required"),
+});----------------
+File: lib/supabase.ts
+import { createClient } from "@supabase/supabase-js";
+
+// const supabaseUrl = process.env.SUPABASE_URL as string;
+// const supabaseKey = process.env.SUPABASE_ANON_KEY as string;
+
+export const supabase = createClient(
+  "https://cbrgfqvmkgowzerbzued.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNicmdmcXZta2dvd3plcmJ6dWVkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyMjIxMjE3NCwiZXhwIjoyMDM3Nzg4MTc0fQ.BwDIw8-rDWUPHBFqFsIghB8Ye27WLf6QljAK59aqWgI"
+);
+----------------
+File: lib/prisma.ts
+import { PrismaClient } from "@prisma/client";
+
+const prismaClientSingleton = () => {
+  return new PrismaClient();
+};
+
+declare const globalThis: {
+  prismaGlobal: ReturnType<typeof prismaClientSingleton>;
+} & typeof global;
+
+const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
+
+export default prisma;
+
+if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;
+----------------
+File: lib/constants.ts
+import {
+  faAdd,
+  faBoxesStacked,
+  faClockRotateLeft,
+  faCog,
+  faEdit,
+  faEye,
+  faHouse,
+  faLineChart,
+  faMessage,
+  faUser,
+  faUserDoctor,
+  faUserTie,
+} from "@fortawesome/free-solid-svg-icons";
+import { AddProductForm, EditProductForm } from "./types";
+
+export const initialFormState = {
+  name: "",
+  email: "",
+  message: "",
+  db: "",
+};
+
+export const initialAddProductFormState: AddProductForm = {
+  name: "",
+  price: "",
+  description: "",
+  countryCode: "",
+  currencySymbol: "",
+  images: [""],
+  country: "",
+  region: "",
+  city: "",
+  db: "",
+};
+
+export const initialEditProductFormState: EditProductForm = {
+  ...initialAddProductFormState,
+  productSupplierId: "", // Additional id field
+};
+
+export const initialSupplierFormState = {
+  name: "",
+  email: "",
+  address: "",
+  phone: "",
+  logo: "",
+  license: "",
+  db: "",
+};
+
+export const initialEditPestFormState = {
+  content: "",
+  db: "",
+};
+
+export const initialAddPestFormState = {
+  name: "",
+  description: "",
+  control: "",
+  damage: "",
+  image: "",
+  db: "",
+};
+
+export const initialDiseaseFormState = {
+  name: "",
+  cause: "",
+  symptoms: "",
+  impact: "",
+  control: "",
+  image: "",
+  db: "",
+};
+
+export enum ScanStatus {
+  SUCCESS = "Success",
+  ERROR = "Something unexpected happened",
+  IMAGENOTPEST = "Image is not a pest",
+  IMAGENOTDISEASE = "Image is not a disease",
+}
+
+export const ADMIN_ROUTES = [
+  {
+    path: "/admin/dashboard",
+    value: "Dashboard",
+    icon: faHouse,
+  },
+  {
+    path: "/admin/customers",
+    value: "Customers",
+    icon: faUser,
+  },
+  {
+    path: "/admin/consultants",
+    value: "Consultants",
+    icon: faUserDoctor,
+  },
+  {
+    path: "/admin/suppliers",
+    value: "Suppliers",
+    icon: faBoxesStacked,
+  },
+  {
+    path: "/admin/admins",
+    value: "Admins",
+    icon: faUserTie,
+  },
+  {
+    path: "/admin/chat",
+    value: "Chat",
+    icon: faMessage,
+  },
+];
+
+export const CUSTOMER_ROUTES = [
+  {
+    path: "/customer/scan-history",
+    value: "Scan History",
+    icon: faClockRotateLeft,
+  },
+  {
+    path: "/customer/progress-tracker",
+    value: "Progress Tracker",
+    icon: faLineChart,
+  },
+  {
+    path: "/customer/consultants-chat",
+    value: "Consultants Chat",
+    icon: faMessage,
+  },
+  {
+    path: "/consultants",
+    value: "Consultants",
+    icon: faUserDoctor,
+  },
+  {
+    path: "/customer/settings",
+    value: "Settings",
+    icon: faCog,
+  },
+];
+
+export const SUPPLIER_ROUTES = [
+  {
+    path: "/supplier/dashboard",
+    value: "Dashboard",
+    icon: faHouse,
+  },
+  {
+    path: "/supplier/add-product",
+    value: "Add Product",
+    icon: faAdd,
+  },
+  {
+    path: "/supplier/view-products",
+    value: "View Products",
+    icon: faEye
+  },
+  {
+    path: "/supplier/edit-product",
+    value: "Edit Product",
+    icon: faEdit
+  }
+];
+
+export const initialPriceRange = [0, 10000];
+
+export const GEOLOCATION_API = process.env.GEOLOCATION_API;
+----------------
+File: lib/utils.ts
+import { auth } from "@/auth";
+import { cache } from "react";
+import Showdown from "showdown";
+import prisma from "./prisma";
+
+export const cachedAuth = cache(auth);
+
+// Deduplicates request
+// Dont use it on server actions just server pages. We only wanna get cached version when we open our page
+
+const converter = new Showdown.Converter();
+
+export const convertHtmlToMarkdown = (html: string): string => {
+  return converter.makeMarkdown(html);
+};
+
+export const convertMarkdownToHtml = (markdown: string): string => {
+  return converter.makeHtml(markdown);
+};
+
+export const getResourceName = (res: string): string => {
+  const match = res.match(/\*\*(.*?)\*\*/);
+  return match ? match[1] : "";
+};
+
+export const getResourceDescription = (res: string): string => {
+  return res.replace(/\*\*.*?\*\*/, "").trim();
+};
+
+export const isLinkActive = ({
+  route,
+  pathname,
+}: {
+  route: string;
+  pathname: string;
+}) => (route === "/" ? pathname === "/" : pathname.startsWith(route));
+
+export const convertKebabToNormal = (kebab: string): string => {
+  return kebab
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+export const convertFileToBase64 = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+// export const getProductDetails = async (userId) => {
+//   const productsWithNameAndCount = await prisma.productSupplier.groupBy({
+//     by: ["productId"],
+//     _count: { _all: true },
+//     where: { supplierId: userId },
+//     orderBy: { _count: { productId: "desc" } },
+//   });
+
+//   const productIds = productsWithNameAndCount.map((p) => p.productId);
+//   const productNames = await prisma.product.findMany({
+//     where: { id: { in: productIds } },
+//     select: { id: true, name: true },
+//   });
+
+//   const productNameMap = new Map(productNames.map((p) => [p.id, p.name]));
+
+//   return productsWithNameAndCount.map((p) => ({
+//     productId: p.productId,
+//     name: productNameMap.get(p.productId) || "Unknown Product",
+//     count: p._count._all,
+//   }));
+// };
+
+export const arraysAreEqualUnordered = (arr1: string[], arr2: string[]) => {
+  if (arr1.length !== arr2.length) return false;
+  arr1.sort();
+  arr2.sort();
+  for (let i = 0; i < arr1.length; i++) {
+    if (arr1[i] !== arr2[i]) return false;
+  }
+  return true;
+};
+
+export const getCurrencySymbol = async (
+  countryName: string
+): Promise<string> => {
+  try {
+    const res = await fetch(
+      `https://restcountries.com/v3.1/name/${encodeURIComponent(countryName)}`
+    );
+
+    if (!res.ok) throw new Error("Error fetching currency symbol");
+
+    const data = await res.json();
+    if (!data || data.length === 0) throw new Error("Cannot find country");
+
+    const currencyCode = Object.keys(data[0].currencies)[0];
+    return data[0].currencies[currencyCode].symbol;
+  } catch (error) {
+    console.error("Error fetching country data:", error);
+    return "Unknown Currency";
+  }
+};----------------

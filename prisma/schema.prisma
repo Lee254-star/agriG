@@ -1,0 +1,202 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // uses connection pooling
+}
+
+model Pest {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  text      String
+  images    String[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("pests")
+}
+
+model Disease {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  images    String[]
+  text      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("diseases")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  role          Role?
+
+  customer   Customer?
+  consultant Consultant?
+  admin      Admin?
+  supplier   Supplier?
+
+  @@map("users")
+}
+
+model Customer {
+  user User   @relation(fields: [id], references: [id], onDelete: Cascade)
+  id   String @unique @map("customer_id")
+
+  scan Scan[]
+
+  @@map("customers")
+}
+
+model Scan {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  tag         String?
+  url         String   @unique
+  createdAt   DateTime @default(now()) @map("created_at")
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId  String   @map("customer_id")
+  type        ScanType
+
+  @@map("scans")
+}
+
+model Consultant {
+  user                 User     @relation(fields: [id], references: [id], onDelete: Cascade)
+  id                   String   @unique @map("consultant_id")
+  isConsultantVerified Boolean? @default(false) @map("is_verified")
+
+  @@map("consultants")
+}
+
+model Supplier {
+  user            User              @relation(fields: [id], references: [id], onDelete: Cascade)
+  id              String            @id @default(cuid())
+  name            String            @unique
+  logo            String
+  address         String
+  phone           String
+  license         String
+  email           String
+  status          SupplierStatus?
+  approvedBy      String?           @map("approved_by")
+  approvedAt      DateTime?         @map("approved_at")
+  rejectedBy      String?           @map("rejected_by")
+  rejectedAt      DateTime?         @map("rejected_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  ProductSupplier ProductSupplier[] 
+
+  @@map("suppliers")
+}
+
+model Admin {
+  user User   @relation(fields: [id], references: [id], onDelete: Cascade)
+  id   String @id @unique @map("admin_id")
+
+  @@map("admins")
+}
+
+model Account {
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Product {
+  id              String            @id @default(cuid())
+  name            String            @unique
+  ProductSupplier ProductSupplier[]
+
+  @@map("products")
+}
+
+model ProductSupplier {
+  id          String   @unique @default(cuid())
+  country     String
+  city        String
+  region      String
+  countryCode String
+  currencySymbol String
+  price       Float
+  description String
+  images      String[]
+  productId   String
+  supplierId  String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@id([country, city, region, productId, supplierId])
+  @@map("product_suppliers")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  CONSULTANT
+  SUPPLIER
+}
+
+enum ScanType {
+  PEST
+  DISEASE
+}
+
+enum SupplierStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
